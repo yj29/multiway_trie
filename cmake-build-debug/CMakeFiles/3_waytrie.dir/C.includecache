@@ -1,0 +1,30 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/Users/YASH/CLionProjects/3-waytrie/3_way_trie.h
+stdio.h
+-
+stdbool.h
+-
+stdlib.h
+-
+string.h
+-
+
+/Users/YASH/CLionProjects/3-waytrie/main.c
+sys/socket.h
+-
+rpc/types.h
+-
+3_way_trie.h
+/Users/YASH/CLionProjects/3-waytrie/3_way_trie.h
+arpa/inet.h
+-
+math.h
+-
+

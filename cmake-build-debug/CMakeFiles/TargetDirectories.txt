@@ -1,0 +1,3 @@
+/Users/YASH/CLionProjects/3-waytrie/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/Users/YASH/CLionProjects/3-waytrie/cmake-build-debug/CMakeFiles/edit_cache.dir
+/Users/YASH/CLionProjects/3-waytrie/cmake-build-debug/CMakeFiles/3_waytrie.dir
