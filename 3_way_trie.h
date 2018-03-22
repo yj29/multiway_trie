@@ -9,24 +9,24 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#define numberOfChildren (64)
-#define numberOfBits (6)
+#define numberOfChildren (32)
+#define numberOfBits (5)
 
 struct node {
     //struct node *left;
 
     struct node *children[numberOfChildren];
-
+    bool isBroken;
     bool isleaf;
 };
 
-struct node *insert(char *a, struct node *root, int n_way);
+struct node *insert_mt(char *a, struct node *root);
 
-void insert_route_in_trie(__uint64_t *key, int p, int n_way);
+void insert_route_in_multi_trie(__uint64_t *key, int p);
 
-int * lookup(char *a, struct node *root, int n_way);
+int * lookup_mt(char *a, struct node *root);
 
-int lookup_in_trie(__uint64_t *key,int n_way);
+int lookup_in_multi_trie(__uint64_t *key);
 
 struct node *create_node();
 
