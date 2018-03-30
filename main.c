@@ -31,6 +31,7 @@ struct node *create_node() {
     struct node *root = (struct node *) malloc(sizeof(struct node));
     root->isleaf = false;
     root->isBroken = false;
+    root->brokenPrefix = -1;
     for (int i = 0; i < numberOfChildern; i++) {
         root->children[i] = NULL;
     }
@@ -110,19 +111,19 @@ struct node *insert_mt(char *a, struct node *root) {
             temp[k] = '0';
             k++;
         }
-        k = numberOfBits - 1;
-        //k = 0;
-        int c =-1;
-        int t =numberOfBits -1;
-        while (k >= 0 && pref > 0) {
+        //k = numberOfBits - 1;
+        k = 0;
+        int c = -1;
+        int t = numberOfBits - 1;
+        while (k < numberOfBits && pref > 0) {
             if (a[i + k] == '\0' || (i + k) > 128) {
-                k--;
+                k++;
                 //c++;
                 //pref--; //crosscheck
-                continue;
+                break;
             }
             temp[k] = a[i + k];
-            k--;
+            k++;
             pref--;
             c++;
             t--;
@@ -132,13 +133,14 @@ struct node *insert_mt(char *a, struct node *root) {
         if (nd->children[decimal] == NULL) {
             struct node *n = create_node();
             if (t != -1) {
-                nd->children[c] = n;
+                nd->children[decimal] = n;
                 //prev->children[decimal] = NULL;
-                prev =nd;
-                nd = nd->children[c];
+                prev = nd;
+                nd = nd->children[decimal];
+                nd->brokenPrefix = c + 1;
                 prev->isBroken = true;
                 break;
-            }else{
+            } else {
                 nd->children[decimal] = n;
                 prev = nd;
                 nd = nd->children[decimal];
@@ -234,13 +236,14 @@ int *lookup_mt(char *a, struct node *root) {
         while (k >= 0) {
             if (a[i + k] == '\0' || (i + k) > 128) {
                 k--;
-                break;
+                //break;
+                continue;
             }
             temp[k] = a[i + k];
             k--;
         }
         int decimal = converToDecimal(temp);
-        if(nd == NULL){
+        if (nd == NULL) {
             return f_prefix;
         }
         if (nd->isBroken && numberOfBits > 1) { //&& nd->children[decimal] == NULL) {
@@ -248,15 +251,17 @@ int *lookup_mt(char *a, struct node *root) {
             //if (prev != NULL) {
             int prefix_1 = fineTunePrefix(nd, temp, numberOfBits, 0);
             if (prefix_1 != -1) {
-                f_prefix += prefix + prefix_1;
-            } else {
-                f_prefix += prefix;
+                f_prefix = prefix + prefix_1;
+                //nd = nd->children[prefix_1 - 1];
             }
-            nd =nd->children[prefix_1-1];
+            prefix += numberOfBits;
+            nd = nd->children[decimal];
+
+
             //break;
         } else {
             prefix += numberOfBits;
-            if (nd->children[decimal]!=NULL && nd->children[decimal]->isleaf) {
+            if (nd->children[decimal] != NULL && nd->children[decimal]->isleaf) {
                 f_prefix = prefix;
             }
             prev = nd;
@@ -276,13 +281,13 @@ int fineTunePrefix(struct node *prev, char *temp, int bits, int startBit) {
     int max = -1;
 
 
-    for (i = 0; i < numberOfChildren; i++) {
-        if (prev->children[i] != NULL && prev->children[i]) {
-            max = i + 1;// > max ? index : max;
+    /*for (i = 0; i < numberOfChildren; i++) {
+        if (prev->children[i] != NULL && prev->children[i]->isleaf) {
+            max = i +
+                  1;// max = prev->children[i]->brokenPrefix > max ? prev->children[i]->brokenPrefix : max;//max = i + 1;//
         }
-    }
-    /*for (i = startBit; i < bits; i++) {
-        int index = 0;
+    }*/
+    for (i = 0; i < bits; i++) {
         char *t = malloc(sizeof(char) * numberOfBits);
         for (int k = 0; k < bits; ++k) {
             t[k] = '0';
@@ -290,15 +295,15 @@ int fineTunePrefix(struct node *prev, char *temp, int bits, int startBit) {
 
         for (j = 0; j < i + 1; j++) {
             t[j] = temp[j];
-            index++;
+            //index++;
         }
         int dec = converToDecimal(t);
         if (prev->children[dec] != NULL && prev->children[dec]->isleaf) {
-            max = index > max ? index : max;
+            max = prev->children[dec]->brokenPrefix > max ? prev->children[dec]->brokenPrefix : max;
         }
-        int t1 = fineTunePrefix(prev, temp, bits - 1, startBit + 1);
-        return max < t1 ? t1 : max;
-    }*/
+        //int t1 = fineTunePrefix(prev, temp, bits - 1, startBit + 1);
+        //return max < t1 ? t1 : max;
+    }
     //out = (max != -1) ? max : out;
     return max;
 }
@@ -371,9 +376,9 @@ int main() {
     struct timeval t0, t1;
 
     //----------------------CREATING m-way trie----------------------------
-    //FILE *ft1 = fopen("/Users/YASH/Documents/spring-18/capstone/inputdata/poptrie_input.txt", "r");
+    // FILE *ft1 = fopen("/Users/YASH/Documents/spring-18/capstone/inputdata/poptrie_input.txt", "r");
     // FILE *ft2 = fopen("/Users/YASH/Documents/spring-18/capstone/inputdata/poptrie_output.txt", "r");
-    FILE *ft1 = fopen("/Users/YASH/Documents/spring-18/capstone/inputdata/test1.txt", "r");
+    FILE *ft1 = fopen("/Users/YASH/Documents/spring-18/capstone/inputdata/1.txt", "r");
     //int c = 0;
     while (getline(&line, &len, ft1) != -1) {
 
@@ -395,8 +400,8 @@ int main() {
     }
 
     //--------------------LOOKUP IN m-way trie
-    //FILE *ft = fopen("/Users/YASH/Documents/spring-18/capstone/inputdata/poptrie_output.txt", "r");
-    FILE *ft = fopen("/Users/YASH/Documents/spring-18/capstone/inputdata/test_out1.txt", "r");
+    // FILE *ft = fopen("/Users/YASH/Documents/spring-18/capstone/inputdata/poptrie_output.txt", "r");
+    FILE *ft = fopen("/Users/YASH/Documents/spring-18/capstone/inputdata/2.txt", "r");
     idx = 0;
     while (getline(&line, &len, ft) != -1) {
         n = strlen(line) - 1;
@@ -408,7 +413,10 @@ int main() {
     printf("Lookup File read!\n");
     gettimeofday(&t0, NULL);
     for (i = 0; i < idx; i = i + 1) {
-        printf("Lookup: %d\n", i);
+       // printf("Lookup: %d\n", i);
+        if (i == 171) {
+            printf("");
+        }
         int pref = lookup_in_multi_trie(&ad[i]);
         output[i] = pref;
         //if (i < 1005 && i >= 805)
@@ -423,9 +431,15 @@ int main() {
 
 
     FILE *f = fopen("file.txt", "w");
+    bool a = true;
     for (int i = 0; i < idx; i++) {
+        if (input[i] != output[i]) {
+           printf("\n%d", i);
+            a = false;
+        }
         fprintf(f, "\n%d \t %d", input[i], output[i]);
     }
+   // printf("%d", a);
     fclose(f);
     return 0;
 }

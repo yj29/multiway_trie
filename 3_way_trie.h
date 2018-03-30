@@ -9,8 +9,8 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#define numberOfChildren (32)
-#define numberOfBits (5)
+#define numberOfChildren (64)
+#define numberOfBits (6)
 
 struct node {
     //struct node *left;
@@ -18,6 +18,7 @@ struct node {
     struct node *children[numberOfChildren];
     bool isBroken;
     bool isleaf;
+    int brokenPrefix;
 };
 
 struct node *insert_mt(char *a, struct node *root);
