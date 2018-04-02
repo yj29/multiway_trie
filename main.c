@@ -14,10 +14,10 @@ struct address {
     unsigned long long a1;
     unsigned long long a2;
 };
-struct address ad[500050];
+struct address ad[510050];
 int idx = 0;
-int input[5000050];
-int output[5000050];
+int input[5100050];
+int output[5100050];
 
 
 struct node *lookup_node;
@@ -32,6 +32,7 @@ struct node *create_node() {
     root->isleaf = false;
     root->isBroken = false;
     root->brokenPrefix = -1;
+    root->isBrokenLeaf = false;
     for (int i = 0; i < numberOfChildern; i++) {
         root->children[i] = NULL;
     }
@@ -68,9 +69,11 @@ unsigned long long *binary_ipv6(char *char_ip) {
     ip6_ret[1] = addr1;
     ip6_ret[0] = addr1 >> 64;
     ip6_ret[2] = prefixlen;
+
     ad[idx].a0 = addr1 >> 64;
     ad[idx].a1 = addr1;
     ad[idx++].a2 = prefixlen;
+    // printf("\n%d %d",idx,prefixlen);
     return ip6_ret;
 }
 
@@ -139,16 +142,36 @@ struct node *insert_mt(char *a, struct node *root) {
                 nd = nd->children[decimal];
                 nd->brokenPrefix = c + 1;
                 prev->isBroken = true;
+                nd->isBrokenLeaf = true;
                 break;
             } else {
                 nd->children[decimal] = n;
                 prev = nd;
                 nd = nd->children[decimal];
+                if (pref == 0) {
+                    nd->isleaf = true;
+                }
             }
             countOfNodes++;
         } else {
-            prev = nd;
-            nd = nd->children[decimal];
+
+            if (t != -1) {
+                //nd->children[decimal] = n;
+                //prev->children[decimal] = NULL;
+                prev = nd;
+                nd = nd->children[decimal];
+                nd->brokenPrefix = c + 1;
+                prev->isBroken = true;
+                nd->isBrokenLeaf = true;
+                break;
+            } else {
+                prev = nd;
+                nd = nd->children[decimal];
+                if (pref == 0) {
+                    nd->isleaf = true;
+                    //nd->brokenPrefix = decimal;
+                }
+            }
         }
     }
     return nd;
@@ -218,7 +241,7 @@ void insert_route_in_multi_trie(__uint64_t *key, int p) {
         }
     }
     struct node *nd1 = insert_mt(rev, root_bg);
-    nd1->isleaf = true;
+    // nd1->isleaf = true;
 }
 
 int *lookup_mt(char *a, struct node *root) {
@@ -249,9 +272,19 @@ int *lookup_mt(char *a, struct node *root) {
         if (nd->isBroken && numberOfBits > 1) { //&& nd->children[decimal] == NULL) {
             //if (numberOfBits > 1) {
             //if (prev != NULL) {
+
+            if (nd->children[decimal] != NULL && nd->children[decimal]->isleaf) {
+                int bit = numberOfBits;
+                f_prefix = prefix + bit;
+                nd = nd->children[decimal];
+                continue;
+            }
+
+
             int prefix_1 = fineTunePrefix(nd, temp, numberOfBits, 0);
             if (prefix_1 != -1) {
                 f_prefix = prefix + prefix_1;
+                //break;
                 //nd = nd->children[prefix_1 - 1];
             }
             prefix += numberOfBits;
@@ -260,13 +293,14 @@ int *lookup_mt(char *a, struct node *root) {
 
             //break;
         } else {
-            prefix += numberOfBits;
+
             if (nd->children[decimal] != NULL && nd->children[decimal]->isleaf) {
-                f_prefix = prefix;
+                int bit = numberOfBits;
+                f_prefix = prefix + bit;//numberOfBits;//+decimal;
             }
             prev = nd;
             nd = nd->children[decimal];
-
+            prefix += numberOfBits;
         }
 
     }
@@ -298,7 +332,7 @@ int fineTunePrefix(struct node *prev, char *temp, int bits, int startBit) {
             //index++;
         }
         int dec = converToDecimal(t);
-        if (prev->children[dec] != NULL && prev->children[dec]->isleaf) {
+        if (prev->children[dec] != NULL && prev->children[dec]->isBrokenLeaf) {
             max = prev->children[dec]->brokenPrefix > max ? prev->children[dec]->brokenPrefix : max;
         }
         //int t1 = fineTunePrefix(prev, temp, bits - 1, startBit + 1);
@@ -378,8 +412,8 @@ int main() {
     //----------------------CREATING m-way trie----------------------------
     // FILE *ft1 = fopen("/Users/YASH/Documents/spring-18/capstone/inputdata/poptrie_input.txt", "r");
     // FILE *ft2 = fopen("/Users/YASH/Documents/spring-18/capstone/inputdata/poptrie_output.txt", "r");
-    FILE *ft1 = fopen("/Users/YASH/Documents/spring-18/capstone/inputdata/1.txt", "r");
-    //int c = 0;
+    FILE *ft1 = fopen("/Users/YASH/Documents/spring-18/capstone/inputdata/3.txt", "r");
+    //int c = 0
     while (getline(&line, &len, ft1) != -1) {
 
         n = strlen(line) - 1;
@@ -392,6 +426,9 @@ int main() {
     printf("Insertion File read!\n");
     int i = 0;
     for (i = 0; i < idx; i++) {
+        if (i == 499018) {
+            printf("");
+        }
         //printf("Inserting: %d\n", i);
         uint64_t *net_prefix = create_mask(&ad[i], ad[i].a2);
         //insertion on trie
@@ -401,7 +438,7 @@ int main() {
 
     //--------------------LOOKUP IN m-way trie
     // FILE *ft = fopen("/Users/YASH/Documents/spring-18/capstone/inputdata/poptrie_output.txt", "r");
-    FILE *ft = fopen("/Users/YASH/Documents/spring-18/capstone/inputdata/2.txt", "r");
+    FILE *ft = fopen("/Users/YASH/Documents/spring-18/capstone/inputdata/4.txt", "r");
     idx = 0;
     while (getline(&line, &len, ft) != -1) {
         n = strlen(line) - 1;
@@ -413,8 +450,8 @@ int main() {
     printf("Lookup File read!\n");
     gettimeofday(&t0, NULL);
     for (i = 0; i < idx; i = i + 1) {
-       // printf("Lookup: %d\n", i);
-        if (i == 171) {
+        // printf("Lookup: %d\n", i);
+        if (i == 184365) {
             printf("");
         }
         int pref = lookup_in_multi_trie(&ad[i]);
@@ -431,15 +468,17 @@ int main() {
 
 
     FILE *f = fopen("file.txt", "w");
+    FILE *fincorrect = fopen("file_incorrect.txt", "w");
     bool a = true;
     for (int i = 0; i < idx; i++) {
         if (input[i] != output[i]) {
-           printf("\n%d", i);
+            printf("\n%d %d %d", i, input[i], output[i]);
+            fprintf(fincorrect, "\n%d\t %d \t %d", i, input[i], output[i]);
             a = false;
         }
         fprintf(f, "\n%d \t %d", input[i], output[i]);
     }
-   // printf("%d", a);
+    // printf("%d", a);
     fclose(f);
     return 0;
 }
