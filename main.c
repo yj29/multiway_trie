@@ -16,30 +16,33 @@ struct address {
 };
 struct address ad[510050];
 int idx = 0;
-int input[5100050];
-int output[5100050];
+int input[510050];
+int output[510050];
+int pre[40];
+static int pre_index = 0;
 
 
-struct node *lookup_node;
 static int prefix, ct = 1, pref;
 static int f_prefix = 0;
-struct node *root_bg = NULL;
+struct node_mt *root_bg = NULL;
 int numberOfChildern = numberOfChildren;
 static int countOfNodes = 0;
 
-struct node *create_node() {
-    struct node *root = (struct node *) malloc(sizeof(struct node));
+struct node_mt *create_node_mt() {
+    struct node_mt *root = (struct node_mt *) malloc(sizeof(struct node_mt));
     root->isleaf = false;
     root->isBroken = false;
     root->brokenPrefix = -1;
     root->isBrokenLeaf = false;
-    for (int i = 0; i < numberOfChildern; i++) {
+    int i = 0;
+    for (i = 0; i < numberOfChildern; i++) {
         root->children[i] = NULL;
     }
     return root;
 }
 
 //convert into unsigned int
+
 static __inline__ __uint128_t in6_addr_to_uint128(struct in6_addr *in6) {
     __uint128_t a;
     int i;
@@ -77,12 +80,14 @@ unsigned long long *binary_ipv6(char *char_ip) {
     return ip6_ret;
 }
 
+
 /**
  * Masking method
  * @param adr
  * @param pref
  * @return
  */
+
 __uint64_t *create_mask(uint64_t *adr, int pref) {
     uint64_t mask1 = 0xFFFFFFFFFFFFFFFF, mask2 = 0xFFFFFFFFFFFFFFFF;
     if (pref < 65) {
@@ -103,26 +108,19 @@ __uint64_t *create_mask(uint64_t *adr, int pref) {
     return adr;
 }
 
-struct node *insert_mt(char *a, struct node *root) {
-    struct node *nd = root;
-    struct node *prev = NULL;
-    for (int i = 0; a[i] != '\0' && pref > 0; i = i + numberOfBits) {
+
+struct node_mt *insert_mt(char *a, struct node_mt *root) {
+    struct node_mt *nd = root;
+    struct node_mt *prev = NULL;
+    int i = 0;
+    for (i = 0; a[i] != '\0' && pref > 0; i = i + numberOfBits) {
         // printf("I= %d\n",i);
         char *temp = malloc(sizeof(char) * numberOfBits);
         int k = 0;
-        while (k < numberOfBits) {
-            temp[k] = '0';
-            k++;
-        }
-        //k = numberOfBits - 1;
-        k = 0;
         int c = -1;
         int t = numberOfBits - 1;
         while (k < numberOfBits && pref > 0) {
-            if (a[i + k] == '\0' || (i + k) > 128) {
-                k++;
-                //c++;
-                //pref--; //crosscheck
+            if (a[i + k] == '\0' || (i + k) > 127) {
                 break;
             }
             temp[k] = a[i + k];
@@ -131,33 +129,34 @@ struct node *insert_mt(char *a, struct node *root) {
             c++;
             t--;
         }
+        while (k < numberOfBits) {
+            temp[k] = '0';
+            k++;
+        }
 
         int decimal = converToDecimal(temp);
         if (nd->children[decimal] == NULL) {
-            struct node *n = create_node();
+            struct node_mt *n = create_node_mt();
+            countOfNodes++;
             if (t != -1) {
-                nd->children[decimal] = n;
-                //prev->children[decimal] = NULL;
+                nd->children[decimal] = n; //CHECK WITH RAHUL
                 prev = nd;
                 nd = nd->children[decimal];
                 nd->brokenPrefix = c + 1;
                 prev->isBroken = true;
-                nd->isBrokenLeaf = true;
-                break;
+                if (pref == 0) {
+                    nd->isBrokenLeaf = true;
+                    break;
+                }
             } else {
                 nd->children[decimal] = n;
-                prev = nd;
                 nd = nd->children[decimal];
                 if (pref == 0) {
                     nd->isleaf = true;
                 }
             }
-            countOfNodes++;
         } else {
-
             if (t != -1) {
-                //nd->children[decimal] = n;
-                //prev->children[decimal] = NULL;
                 prev = nd;
                 nd = nd->children[decimal];
                 nd->brokenPrefix = c + 1;
@@ -165,11 +164,9 @@ struct node *insert_mt(char *a, struct node *root) {
                 nd->isBrokenLeaf = true;
                 break;
             } else {
-                prev = nd;
                 nd = nd->children[decimal];
                 if (pref == 0) {
                     nd->isleaf = true;
-                    //nd->brokenPrefix = decimal;
                 }
             }
         }
@@ -194,9 +191,25 @@ void insert_route_in_multi_trie(__uint64_t *key, int p) {
     int i = 0;
     char rev[129] = "";
     pref = p;
+    int k = 0;
+    int l = 0;
+    int t = 0;
+
+    char b[65] = "";
+    int j = 0;
+    char rev1[65] = "";
+    __uint64_t m = key[1];
+
+    /* n = ((n >> 56) & 0xFF) | ((n >> 40) & 0xFF00) | ((n >> 24) & 0xFF0000) | ((n >> 8) & 0xFF000000) |
+         ((n << 56) & 0xFF00000000000000) | ((n << 40) & 0x00FF000000000000) | ((n << 24) & 0x0000FF0000000000) |
+         ((n << 8) & 0x000000FF00000000);
+     m = ((m >> 56) & 0xFF) | ((m >> 40) & 0xFF00) | ((m >> 24) & 0xFF0000) | ((m >> 8) & 0xFF000000) |
+         ((m << 56) & 0xFF00000000000000) | ((m << 40) & 0x00FF000000000000) | ((m << 24) & 0x0000FF0000000000) |
+         ((m << 8) & 0x000000FF00000000);*/
+
     //root creation
     if (ct == 1) {
-        root_bg = create_node();
+        root_bg = create_node_mt();
         countOfNodes++;
         ct = 0;
     }
@@ -209,137 +222,129 @@ void insert_route_in_multi_trie(__uint64_t *key, int p) {
     }
     //PROBLEM
     if (i < 64) {
-        for (int k = i; k < 64; k++)
+        for (k = i; k < 64; k++)
             a[k] = 48;
     }
-    for (int l = strlen(a) - 1, t = 0; l >= 0; --l, t++) {
+    for (l = strlen(a) - 1, t = 0; l >= 0; --l, t++) {
         rev[t] = a[l];
 
     }
-    char b[65] = "";
-    int j = 0;
-    char rev1[65] = "";
-    __uint64_t m = key[1];
-    if (pref > 0) {
-        while (m != 0) {
 
-            int k = m % 2;
-            b[j] = k + 48;
-            m = m / 2;
-            j++;
-        }
-        if (j < 64) {
-            for (int k = j; k < 64; k++)
-                b[k] = 48;
-        }
-        for (int l = strlen(b) - 1, t = 0; l >= 0; --l, t++) {
-            rev1[t] = b[l];
-
-        }
-        for (int i = 64; i < 129; i++) {
-            rev[i] = rev1[i - 64];
-        }
+    //if (pref > 0) {
+    while (m != 0) {
+        int k = m % 2;
+        b[j] = k + 48;
+        m = m / 2;
+        j++;
     }
-    struct node *nd1 = insert_mt(rev, root_bg);
-    // nd1->isleaf = true;
+    if (j < 64) {
+        for (k = j; k < 64; k++)
+            b[k] = 48;
+    }
+    for (l = strlen(b) - 1, t = 0; l >= 0; --l, t++) {
+        rev1[t] = b[l];
+
+    }
+    for (i = 64; i < 129; i++) {
+        rev[i] = rev1[i - 64];
+    }
+    /* FILE *pFile2 = fopen("input.txt", "a");
+     //fprintf(pFile2,"%s", strcat(rev,'\0'));
+     fputs(  rev, pFile2);
+     fputs("\n",pFile2);
+     fclose(pFile2);*/
+    //}
+    insert_mt(rev, root_bg);
 }
 
-int *lookup_mt(char *a, struct node *root) {
-    struct node *nd = root;
-    struct node *prev = NULL;
-    for (int i = 0; a[i] != '\0'; i = i + numberOfBits) {
+int lookup_mt(char *a, struct node_mt *root) {
+    struct node_mt *nd = root;
+    int i = 0;
+    for (i = 0; a[i] != '\0'; i = i + numberOfBits) {
         char *temp = malloc(sizeof(char) * numberOfBits);
         int k = 0;
         while (k < numberOfBits) {
             temp[k] = '0';
             k++;
         }
-        k = numberOfBits - 1;
-        //k = 0;
-        while (k >= 0) {
-            if (a[i + k] == '\0' || (i + k) > 128) {
-                k--;
-                //break;
-                continue;
+        k = 0;
+        int c = -1;
+        while (k < numberOfBits) {
+            if (a[i + k] == '\0' || (i + k) > 127) {
+                break;
             }
+            c++;
             temp[k] = a[i + k];
-            k--;
+            k++;
         }
+
         int decimal = converToDecimal(temp);
         if (nd == NULL) {
-            return f_prefix;
+            //return f_prefix;
+            break;
         }
-        if (nd->isBroken && numberOfBits > 1) { //&& nd->children[decimal] == NULL) {
-            //if (numberOfBits > 1) {
-            //if (prev != NULL) {
 
-            if (nd->children[decimal] != NULL && nd->children[decimal]->isleaf) {
-                int bit = numberOfBits;
-                f_prefix = prefix + bit;
+
+        if (nd->children[decimal] != NULL && nd->children[decimal]->isleaf) {
+            int bit = numberOfBits;
+            f_prefix = prefix + bit;
+            nd = nd->children[decimal];
+            prefix += numberOfBits;
+            continue;
+        }else{
+            struct node_mt *res;
+            if (nd->isBroken) {//} && numberOfBits > 1) {
+                res = fineTunePrefix(nd, temp, c);
+                if (res != NULL) {
+                    f_prefix = prefix + res->brokenPrefix;
+                }
                 nd = nd->children[decimal];
-                continue;
+                prefix += numberOfBits;
+            } else {
+                nd = nd->children[decimal];
+                prefix += numberOfBits;
             }
-
-
-            int prefix_1 = fineTunePrefix(nd, temp, numberOfBits, 0);
-            if (prefix_1 != -1) {
-                f_prefix = prefix + prefix_1;
-                //break;
-                //nd = nd->children[prefix_1 - 1];
-            }
-            prefix += numberOfBits;
-            nd = nd->children[decimal];
-
-
-            //break;
-        } else {
-
-            if (nd->children[decimal] != NULL && nd->children[decimal]->isleaf) {
-                int bit = numberOfBits;
-                f_prefix = prefix + bit;//numberOfBits;//+decimal;
-            }
-            prev = nd;
-            nd = nd->children[decimal];
-            prefix += numberOfBits;
         }
-
     }
-    lookup_node = nd;
     return f_prefix;
 }
 
-int fineTunePrefix(struct node *prev, char *temp, int bits, int startBit) {
-    int out = -1;
+struct node_mt *fineTunePrefix(struct node_mt *prev, char *temp, int bits) {
+    //int out = -1;
     int i = 0;
     int j = 0;
     int max = -1;
+    int k = 0;
+    struct node_mt *res = NULL;
 
-
-    /*for (i = 0; i < numberOfChildren; i++) {
-        if (prev->children[i] != NULL && prev->children[i]->isleaf) {
-            max = i +
-                  1;// max = prev->children[i]->brokenPrefix > max ? prev->children[i]->brokenPrefix : max;//max = i + 1;//
+/*
+    for( i=0;i<numberOfChildren;i++){
+        if (prev->children[i] != NULL && prev->children[i]->isBrokenLeaf) {
+            res = prev->children[i]->brokenPrefix > max ? prev->children[i] : res;
+            max = prev->children[i]->brokenPrefix > max ? prev->children[i]->brokenPrefix : max;
         }
-    }*/
-    for (i = 0; i < bits; i++) {
+    }
+*/
+
+    for (i = 0; i <= bits; i++) {
         char *t = malloc(sizeof(char) * numberOfBits);
-        for (int k = 0; k < bits; ++k) {
+        for (k = 0; k < numberOfBits; ++k) {
             t[k] = '0';
         }
-
+        int bitsConsidered = 0;
         for (j = 0; j < i + 1; j++) {
             t[j] = temp[j];
-            //index++;
+            bitsConsidered = j + 1;
         }
         int dec = converToDecimal(t);
-        if (prev->children[dec] != NULL && prev->children[dec]->isBrokenLeaf) {
+        if (prev->children[dec] != NULL && prev->children[dec]->isBrokenLeaf &&
+            prev->children[dec]->brokenPrefix == bitsConsidered) {
+            res = prev->children[dec]->brokenPrefix > max ? prev->children[dec] : res;
             max = prev->children[dec]->brokenPrefix > max ? prev->children[dec]->brokenPrefix : max;
+
         }
-        //int t1 = fineTunePrefix(prev, temp, bits - 1, startBit + 1);
-        //return max < t1 ? t1 : max;
     }
-    //out = (max != -1) ? max : out;
-    return max;
+    return res;
 }
 
 int lookup_in_multi_trie(__uint64_t *key) {
@@ -348,8 +353,27 @@ int lookup_in_multi_trie(__uint64_t *key) {
     char a[65] = "";
     char rev[129] = "";
     int i = 0;
+    int k = 0;
+    int t = 0;
+    int l = 0;
 
+    char b[65] = "";
+    char rev1[65] = "";
+    int j = 0;
+    __uint64_t m = *(key + 1);
+
+    /*n = ((n >> 56) & 0xFF) | ((n >> 40) & 0xFF00) | ((n >> 24) & 0xFF0000) | ((n >> 8) & 0xFF000000) |
+        ((n << 56) & 0xFF00000000000000) | ((n << 40) & 0x00FF000000000000) | ((n << 24) & 0x0000FF0000000000) |
+        ((n << 8) & 0x000000FF00000000);
+    m = ((m >> 56) & 0xFF) | ((m >> 40) & 0xFF00) | ((m >> 24) & 0xFF0000) | ((m >> 8) & 0xFF000000) |
+        ((m << 56) & 0xFF00000000000000) | ((m << 40) & 0x00FF000000000000) | ((m << 24) & 0x0000FF0000000000) |
+        ((m << 8) & 0x000000FF00000000);*/
     prefix = 0;
+
+
+    if (m == 0 && n == 0) {
+        return 0;
+    }
     while (n != 0) {
         int r = n % 2;
         a[i] = r + 48;
@@ -358,17 +382,13 @@ int lookup_in_multi_trie(__uint64_t *key) {
     }
 
     if (i < 64) {
-        for (int k = i; k < 64; k++)
+        for (k = i; k < 64; k++)
             a[k] = 48;
     }
-    for (int l = l = strlen(a) - 1, t = 0; l >= 0; --l, t++) {
+    for (l = strlen(a) - 1, t = 0; l >= 0; --l, t++) {
         rev[t] = a[l];
     }
 
-    char b[65] = "";
-    char rev1[65] = "";
-    int j = 0;
-    __uint64_t m = *(key + 1);
     while (m != 0) {
         int k = m % 2;
         b[j] = k + 48;
@@ -376,30 +396,32 @@ int lookup_in_multi_trie(__uint64_t *key) {
         j++;
     }
     if (j < 64) {
-        for (int k = j; k < 64; k++)
+        for (k = j; k < 64; k++)
             b[k] = 48;
     }
 
-    for (int l = strlen(b) - 1, t = 0; l >= 0; --l, t++) {
+    for (l = strlen(b) - 1, t = 0; l >= 0; --l, t++) {
         rev1[t] = b[l];
     }
 
-    for (int i = 64; i < 129; i++) {
+    for (i = 64; i < 129; i++) {
         rev[i] = rev1[i - 64];
     }
     f_prefix = 0;
     prefix = 0;
+    /*FILE *pFile2 = fopen("output.txt", "a");
+    fputs(  rev, pFile2);
+    fputs("\n",pFile2);
+    fclose(pFile2);*/
     tt = lookup_mt(rev, root_bg);
-    /* if (rev1[0] != '\0') {
-         // tt = lookup(rev1, lookup_node);
-     }*/
     return tt;
 
 }
 
+
 int main() {
     bool t;
-    struct node nnn;
+    struct node_mt nnn;
     //sizeOfOneNode = (int) sizeof(nnn);
     printf("%d\n", sizeof(nnn));
     int n_way = numberOfBits;
@@ -412,7 +434,7 @@ int main() {
     //----------------------CREATING m-way trie----------------------------
     // FILE *ft1 = fopen("/Users/YASH/Documents/spring-18/capstone/inputdata/poptrie_input.txt", "r");
     // FILE *ft2 = fopen("/Users/YASH/Documents/spring-18/capstone/inputdata/poptrie_output.txt", "r");
-    FILE *ft1 = fopen("/Users/YASH/Documents/spring-18/capstone/inputdata/3.txt", "r");
+    FILE *ft1 = fopen("/Users/YASH/Documents/spring-18/capstone/inputdata/5_john.txt", "r");
     //int c = 0
     while (getline(&line, &len, ft1) != -1) {
 
@@ -434,11 +456,23 @@ int main() {
         //insertion on trie
         input[i] = ad[i].a2;
         insert_route_in_multi_trie(net_prefix, ad[i].a2);
+        int ind = 0;
+        bool isPresent = false;
+        while (ind < pre_index) {
+            if (pre[ind] == ad[i].a2) {
+                isPresent = true;
+                break;
+            }
+            ind++;
+        }
+        if (!isPresent) {
+            pre[pre_index++] = ad[i].a2;
+        }
     }
 
     //--------------------LOOKUP IN m-way trie
     // FILE *ft = fopen("/Users/YASH/Documents/spring-18/capstone/inputdata/poptrie_output.txt", "r");
-    FILE *ft = fopen("/Users/YASH/Documents/spring-18/capstone/inputdata/4.txt", "r");
+    FILE *ft = fopen("/Users/YASH/Documents/spring-18/capstone/inputdata/6_john_t.txt", "r");
     idx = 0;
     while (getline(&line, &len, ft) != -1) {
         n = strlen(line) - 1;
@@ -449,16 +483,28 @@ int main() {
     }
     printf("Lookup File read!\n");
     gettimeofday(&t0, NULL);
+    FILE *fil = fopen("incorrect.txt", "w");
     for (i = 0; i < idx; i = i + 1) {
-        // printf("Lookup: %d\n", i);
-        if (i == 184365) {
+        //  printf("Lookup: %d\n", i);
+        if (i == 425898) {
             printf("");
         }
-        int pref = lookup_in_multi_trie(&ad[i]);
-        output[i] = pref;
-        //if (i < 1005 && i >= 805)
-        //printf("prefix=%d\n", pref);
+        int p = lookup_in_multi_trie(&ad[i]);
+        int ind = 0;
+        bool isPresent = false;
+        while (ind < pre_index) {
+            if (pre[ind] == p) {
+                isPresent = true;
+                break;
+            }
+            ind++;
+        }
+        if (!isPresent) {
+            fprintf(fil, "\n%d %d", i, p);
+        }
+        output[i] = p;
     }
+    fclose(fil);
 
     gettimeofday(&t1, NULL);
     elap = (t1.tv_sec * 1e6 + t1.tv_usec - t0.tv_sec * 1e6 - t0.tv_usec) / (1e6);
@@ -466,19 +512,34 @@ int main() {
     printf("\nNumber of nodes: %d\n", countOfNodes);
     // printf("\nOverall size %d MB\n", ((countOfNodes * sizeof(nnn))) / (1024 * 1024));
 
-
-    FILE *f = fopen("file.txt", "w");
+    char numb[10];
+    sprintf(numb, "%d", numberOfBits);
+    FILE *f = fopen(strcat(numb, "file.txt"), "w");
     FILE *fincorrect = fopen("file_incorrect.txt", "w");
-    bool a = true;
     for (int i = 0; i < idx; i++) {
-        if (input[i] != output[i]) {
-            printf("\n%d %d %d", i, input[i], output[i]);
+        /*if (output[i] != 0 && output[i] != 10) {
+            printf("\n%d \t %d", i, output[i]);
+        }*/
+        //printf("\n%d %d %d", i, input[i], output[i]);
+        if (input[i] != output[i])
             fprintf(fincorrect, "\n%d\t %d \t %d", i, input[i], output[i]);
-            a = false;
-        }
-        fprintf(f, "\n%d \t %d", input[i], output[i]);
+        fprintf(f, "\n%d\t%d\t%d", i, input[i], output[i]);
     }
-    // printf("%d", a);
     fclose(f);
+
+/*
+    FILE *f = fopen("file.txt", "w");
+     FILE *fincorrect = fopen("file_incorrect.txt", "w");
+     for (int i = 0; i < idx; i++) {
+         if (input[i] != output[i]) {
+             //printf("\n%d %d %d", i, input[i], output[i]);
+             fprintf(fincorrect, "\n%d\t %d \t %d", i, input[i], output[i]);
+         }
+         fprintf(f, "\n%d \t %d", input[i], output[i]);
+     }
+     fclose(f);
+*/
+
+
     return 0;
 }
