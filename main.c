@@ -5,10 +5,14 @@
 
 #include <sys/socket.h>
 #include <rpc/types.h>
-#include "3_way_trie.h"
+#include "multi_way_trie.h"
 #include <arpa/inet.h>
 #include <math.h>
 
+/**
+ * This address structure is only used fro standalone system and not for the VPP.
+ * In standalone we read the file and store all the IPs in thsi datastructure.
+ */
 struct address {
     unsigned long long a0;
     unsigned long long a1;
@@ -28,6 +32,10 @@ struct node_mt *root_bg = NULL;
 int numberOfChildern = numberOfChildren;
 static int countOfNodes = 0;
 
+/**
+ * This method creates multiway trie node with default values in its constructor
+ * @return
+ */
 struct node_mt *create_node_mt() {
     struct node_mt *root = (struct node_mt *) malloc(sizeof(struct node_mt));
     root->isleaf = false;
@@ -43,6 +51,13 @@ struct node_mt *create_node_mt() {
 
 //convert into unsigned int
 
+/**
+ * This method converts IP6 to its hexadcimal format.
+ * In our belief this method gives incorrect output but since this is again not used in VPP integration,
+ * we are good with this. As we are just using this for standalone system.
+ * @param in6
+ * @return
+ */
 static __inline__ __uint128_t in6_addr_to_uint128(struct in6_addr *in6) {
     __uint128_t a;
     int i;
@@ -257,6 +272,67 @@ void insert_route_in_multi_trie(__uint64_t *key, int p) {
     insert_mt(rev, root_bg);
 }
 
+
+int lookup_mt_rec(char *a, struct node_mt *current, int start) {
+    int out = 0;
+    int decimal = 0;
+    struct node_mt *nd = current;
+    int i = 0;
+    char *temp = malloc(sizeof(char) * numberOfBits);
+    int c = -1;
+    if (nd == NULL) {
+        return 0;
+    }
+    for (i = start; i < start + numberOfBits && a[i] != '\0'; i = i + numberOfBits) {
+        int k = 0;
+        while (k < numberOfBits) {
+            temp[k] = '0';
+            k++;
+        }
+        k = 0;
+        while (k < numberOfBits) {
+            if (a[i + k] == '\0' || (i + k) > 127) {
+                break;
+            }
+            c++;
+            temp[k] = a[i + k];
+            k++;
+        }
+        decimal = converToDecimal(temp);
+        i++;
+    }
+
+
+    int t = lookup_mt_rec(a, nd->children[decimal], start + numberOfBits);
+    if (t > 0) {
+        return t;
+    }
+
+    if (nd->isleaf) {
+        //int bit = numberOfBits;
+        out = start;// + numberOfBits;
+    }
+    if (t == 0) {
+        if (out != 0) {
+            return out;
+        } else {
+            if (nd->isBroken) {
+                struct node_mt *res = fineTunePrefix(nd, temp, c);
+                if (res != NULL) {
+                    return start + res->brokenPrefix;
+                } else {
+                    return out;
+                }
+            }
+        }
+    } else {
+        return t;
+    }
+
+    return 0;
+}
+
+
 int lookup_mt(char *a, struct node_mt *root) {
     struct node_mt *nd = root;
     int i = 0;
@@ -291,9 +367,9 @@ int lookup_mt(char *a, struct node_mt *root) {
             nd = nd->children[decimal];
             prefix += numberOfBits;
             continue;
-        }else{
+        } else {
             struct node_mt *res;
-            if (nd->isBroken) {//} && numberOfBits > 1) {
+            if (nd->isBroken) {
                 res = fineTunePrefix(nd, temp, c);
                 if (res != NULL) {
                     f_prefix = prefix + res->brokenPrefix;
@@ -317,15 +393,6 @@ struct node_mt *fineTunePrefix(struct node_mt *prev, char *temp, int bits) {
     int k = 0;
     struct node_mt *res = NULL;
 
-/*
-    for( i=0;i<numberOfChildren;i++){
-        if (prev->children[i] != NULL && prev->children[i]->isBrokenLeaf) {
-            res = prev->children[i]->brokenPrefix > max ? prev->children[i] : res;
-            max = prev->children[i]->brokenPrefix > max ? prev->children[i]->brokenPrefix : max;
-        }
-    }
-*/
-
     for (i = 0; i <= bits; i++) {
         char *t = malloc(sizeof(char) * numberOfBits);
         for (k = 0; k < numberOfBits; ++k) {
@@ -339,6 +406,8 @@ struct node_mt *fineTunePrefix(struct node_mt *prev, char *temp, int bits) {
         int dec = converToDecimal(t);
         if (prev->children[dec] != NULL && prev->children[dec]->isBrokenLeaf &&
             prev->children[dec]->brokenPrefix == bitsConsidered) {
+            /*  if (prev->children[dec] != NULL && prev->children[dec]->brokenPrefix != -1 &&
+                  prev->children[dec]->brokenPrefix == bitsConsidered) {*/
             res = prev->children[dec]->brokenPrefix > max ? prev->children[dec] : res;
             max = prev->children[dec]->brokenPrefix > max ? prev->children[dec]->brokenPrefix : max;
 
@@ -347,6 +416,12 @@ struct node_mt *fineTunePrefix(struct node_mt *prev, char *temp, int bits) {
     return res;
 }
 
+/**
+ * Prepares data for lookup.
+ * This function creates binary IP and calls the lookup method which preforms the task of looking up in the trie.
+ * @param key
+ * @return
+ */
 int lookup_in_multi_trie(__uint64_t *key) {
     int tt;
     __uint64_t n = *(key + 0);
@@ -362,6 +437,8 @@ int lookup_in_multi_trie(__uint64_t *key) {
     int j = 0;
     __uint64_t m = *(key + 1);
 
+    //Convert big endian to little endian format .
+    // Use this only on VPP as VPP uses big endian format.
     /*n = ((n >> 56) & 0xFF) | ((n >> 40) & 0xFF00) | ((n >> 24) & 0xFF0000) | ((n >> 8) & 0xFF000000) |
         ((n << 56) & 0xFF00000000000000) | ((n << 40) & 0x00FF000000000000) | ((n << 24) & 0x0000FF0000000000) |
         ((n << 8) & 0x000000FF00000000);
@@ -409,11 +486,8 @@ int lookup_in_multi_trie(__uint64_t *key) {
     }
     f_prefix = 0;
     prefix = 0;
-    /*FILE *pFile2 = fopen("output.txt", "a");
-    fputs(  rev, pFile2);
-    fputs("\n",pFile2);
-    fclose(pFile2);*/
-    tt = lookup_mt(rev, root_bg);
+    tt = lookup_mt_rec(rev, root_bg, 0);
+    //tt = lookup_mt(rev, root_bg);
     return tt;
 
 }
@@ -472,7 +546,7 @@ int main() {
 
     //--------------------LOOKUP IN m-way trie
     // FILE *ft = fopen("/Users/YASH/Documents/spring-18/capstone/inputdata/poptrie_output.txt", "r");
-    FILE *ft = fopen("/Users/YASH/Documents/spring-18/capstone/inputdata/6_john_t.txt", "r");
+    FILE *ft = fopen("/Users/YASH/Documents/spring-18/capstone/inputdata/random_test.txt", "r");
     idx = 0;
     while (getline(&line, &len, ft) != -1) {
         n = strlen(line) - 1;
@@ -486,7 +560,7 @@ int main() {
     FILE *fil = fopen("incorrect.txt", "w");
     for (i = 0; i < idx; i = i + 1) {
         //  printf("Lookup: %d\n", i);
-        if (i == 425898) {
+        if (i == 2) {
             printf("");
         }
         int p = lookup_in_multi_trie(&ad[i]);
@@ -523,22 +597,11 @@ int main() {
         //printf("\n%d %d %d", i, input[i], output[i]);
         if (input[i] != output[i])
             fprintf(fincorrect, "\n%d\t %d \t %d", i, input[i], output[i]);
-        fprintf(f, "\n%d\t%d\t%d", i, input[i], output[i]);
+        // fprintf(f, "\n%d\t%d\t%d", i, input[i], output[i]);
+        fprintf(f, "\n%d",
+                output[i]);
     }
     fclose(f);
-
-/*
-    FILE *f = fopen("file.txt", "w");
-     FILE *fincorrect = fopen("file_incorrect.txt", "w");
-     for (int i = 0; i < idx; i++) {
-         if (input[i] != output[i]) {
-             //printf("\n%d %d %d", i, input[i], output[i]);
-             fprintf(fincorrect, "\n%d\t %d \t %d", i, input[i], output[i]);
-         }
-         fprintf(f, "\n%d \t %d", input[i], output[i]);
-     }
-     fclose(f);
-*/
 
 
     return 0;

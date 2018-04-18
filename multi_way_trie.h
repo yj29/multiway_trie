@@ -10,8 +10,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define numberOfChildren (2)
-#define numberOfBits (1)
+#define numberOfChildren (8)
+#define numberOfBits (3)
 
 struct node_mt {
     struct node_mt *children[numberOfChildren];
@@ -24,6 +24,8 @@ struct node_mt {
 struct node_mt *insert_mt(char *a, struct node_mt *root);
 
 void insert_route_in_multi_trie(__uint64_t *key, int p);
+
+int lookup_mt_rec(char *a, struct node_mt *current, int start);
 
 int lookup_mt(char *a, struct node_mt *root);
 
