@@ -41,7 +41,7 @@ struct node_mt *create_node_mt() {
     root->isleaf = false;
     root->isBroken = false;
     root->brokenPrefix = -1;
-    root->isBrokenLeaf = false;
+    // root->isBrokenLeaf = false;
     int i = 0;
     for (i = 0; i < numberOfChildern; i++) {
         root->children[i] = NULL;
@@ -160,7 +160,7 @@ struct node_mt *insert_mt(char *a, struct node_mt *root) {
                 nd->brokenPrefix = c + 1;
                 prev->isBroken = true;
                 if (pref == 0) {
-                    nd->isBrokenLeaf = true;
+                    //nd->isBrokenLeaf = true;
                     break;
                 }
             } else {
@@ -176,7 +176,7 @@ struct node_mt *insert_mt(char *a, struct node_mt *root) {
                 nd = nd->children[decimal];
                 nd->brokenPrefix = c + 1;
                 prev->isBroken = true;
-                nd->isBrokenLeaf = true;
+                //nd->isBrokenLeaf = true;
                 break;
             } else {
                 nd = nd->children[decimal];
@@ -205,7 +205,7 @@ void insert_route_in_multi_trie(__uint64_t *key, int p) {
     char a[65] = "";
     int i = 0;
     char rev[129] = "";
-    pref = p;
+     pref = p;
     int k = 0;
     int l = 0;
     int t = 0;
@@ -333,7 +333,7 @@ int lookup_mt_rec(char *a, struct node_mt *current, int start) {
 }
 
 
-int lookup_mt(char *a, struct node_mt *root) {
+/*int lookup_mt(char *a, struct node_mt *root) {
     struct node_mt *nd = root;
     int i = 0;
     for (i = 0; a[i] != '\0'; i = i + numberOfBits) {
@@ -383,7 +383,7 @@ int lookup_mt(char *a, struct node_mt *root) {
         }
     }
     return f_prefix;
-}
+}*/
 
 struct node_mt *fineTunePrefix(struct node_mt *prev, char *temp, int bits) {
     //int out = -1;
@@ -404,10 +404,10 @@ struct node_mt *fineTunePrefix(struct node_mt *prev, char *temp, int bits) {
             bitsConsidered = j + 1;
         }
         int dec = converToDecimal(t);
-        if (prev->children[dec] != NULL && prev->children[dec]->isBrokenLeaf &&
+/*        if (prev->children[dec] != NULL && prev->children[dec]->isBrokenLeaf &&
+            prev->children[dec]->brokenPrefix == bitsConsidered) {*/
+        if (prev->children[dec] != NULL && prev->children[dec]->brokenPrefix != -1 &&
             prev->children[dec]->brokenPrefix == bitsConsidered) {
-            /*  if (prev->children[dec] != NULL && prev->children[dec]->brokenPrefix != -1 &&
-                  prev->children[dec]->brokenPrefix == bitsConsidered) {*/
             res = prev->children[dec]->brokenPrefix > max ? prev->children[dec] : res;
             max = prev->children[dec]->brokenPrefix > max ? prev->children[dec]->brokenPrefix : max;
 
@@ -494,6 +494,7 @@ int lookup_in_multi_trie(__uint64_t *key) {
 
 
 int main() {
+    // int some_prfix = {};
     bool t;
     struct node_mt nnn;
     //sizeOfOneNode = (int) sizeof(nnn);
@@ -558,28 +559,30 @@ int main() {
     printf("Lookup File read!\n");
     gettimeofday(&t0, NULL);
     FILE *fil = fopen("incorrect.txt", "w");
-    for (i = 0; i < idx; i = i + 1) {
-        //  printf("Lookup: %d\n", i);
-        if (i == 2) {
-            printf("");
-        }
-        int p = lookup_in_multi_trie(&ad[i]);
-        int ind = 0;
-        bool isPresent = false;
-        while (ind < pre_index) {
-            if (pre[ind] == p) {
-                isPresent = true;
-                break;
-            }
-            ind++;
-        }
-        if (!isPresent) {
-            fprintf(fil, "\n%d %d", i, p);
-        }
-        output[i] = p;
-    }
-    fclose(fil);
 
+    for (int ti = 0; ti < 20; ti++) {
+        for (i = 0; i < idx; i = i + 1) {
+            //  printf("Lookup: %d\n", i);
+            if (i == 2) {
+                printf("");
+            }
+            int p = lookup_in_multi_trie(&ad[i]);
+            int ind = 0;
+            bool isPresent = false;
+            /*  while (ind < pre_index) {
+                  if (pre[ind] == p) {
+                      isPresent = true;
+                      break;
+                  }
+                  ind++;
+              }
+              if (!isPresent) {
+                  fprintf(fil, "\n%d %d", i, p);
+              }*/
+            output[i] = p;
+        }
+        fclose(fil);
+    }
     gettimeofday(&t1, NULL);
     elap = (t1.tv_sec * 1e6 + t1.tv_usec - t0.tv_sec * 1e6 - t0.tv_usec) / (1e6);
     printf("\ntime elapse in second=%.10f", elap);

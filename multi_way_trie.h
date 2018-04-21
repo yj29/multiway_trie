@@ -10,15 +10,15 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define numberOfChildren (8)
-#define numberOfBits (3)
+#define numberOfChildren (4)
+#define numberOfBits (2)
 
 struct node_mt {
     struct node_mt *children[numberOfChildren];
     bool isBroken;
     bool isleaf;
     int brokenPrefix;
-    bool isBrokenLeaf;
+   // bool isBrokenLeaf;
 };
 
 struct node_mt *insert_mt(char *a, struct node_mt *root);
